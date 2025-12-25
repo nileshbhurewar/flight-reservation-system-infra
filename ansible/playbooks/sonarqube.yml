@@ -1,0 +1,103 @@
+---
+- name: Configure SonarQube Server
+  hosts: sonarqube
+  become: yes
+
+  tasks:
+    # -------------------------
+    # Java & tools
+    # -------------------------
+    - name: Install Java and tools
+      apt:
+        name:
+          - openjdk-17-jdk
+          - unzip
+          - postgresql
+        state: present
+        update_cache: yes
+
+    - name: Start PostgreSQL
+      service:
+        name: postgresql
+        state: started
+        enabled: yes
+
+    # -------------------------
+    # PostgreSQL DB setup
+    # -------------------------
+    - name: Create sonar database user
+      become_user: postgres
+      postgresql_user:
+        name: linux
+        password: redhat
+
+    - name: Create sonar database
+      become_user: postgres
+      postgresql_db:
+        name: sonarqube
+        owner: linux
+
+    # -------------------------
+    # Kernel tuning
+    # -------------------------
+    - name: Set vm.max_map_count
+      sysctl:
+        name: vm.max_map_count
+        value: "524288"
+        state: present
+        reload: yes
+
+    - name: Set fs.file-max
+      sysctl:
+        name: fs.file-max
+        value: "131072"
+        state: present
+        reload: yes
+
+    # -------------------------
+    # SonarQube installation
+    # -------------------------
+    - name: Create sonar user
+      user:
+        name: sonar
+        system: yes
+        create_home: yes
+
+    - name: Download SonarQube
+      get_url:
+        url: https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-25.5.0.107428.zip
+        dest: /opt/sonarqube.zip
+
+    - name: Unzip SonarQube
+      unarchive:
+        src: /opt/sonarqube.zip
+        dest: /opt/
+        remote_src: yes
+
+    - name: Move SonarQube
+      command: mv /opt/sonarqube-25.5.0.107428 /opt/sonar
+      args:
+        creates: /opt/sonar
+
+    - name: Configure sonar.properties
+      lineinfile:
+        path: /opt/sonar/conf/sonar.properties
+        line: "{{ item }}"
+      loop:
+        - "sonar.jdbc.username=linux"
+        - "sonar.jdbc.password=redhat"
+        - "sonar.jdbc.url=jdbc:postgresql://localhost/sonarqube"
+
+    - name: Set ownership
+      file:
+        path: /opt/sonar
+        owner: sonar
+        group: sonar
+        recurse: yes
+
+    # -------------------------
+    # Start SonarQube
+    # -------------------------
+    - name: Start SonarQube
+      become_user: sonar
+      command: /opt/sonar/bin/linux-x86-64/sonar.sh start

@@ -31,5 +31,5 @@ variable "ec2_root_storage_type" {
 variable "ec2_ami_id" {
   description = "AMI ID for EC2"
   type        = string
-  default     = "ami-0c02fb55956c7d316" # Ubuntu 20.04 in us-east-1
+  default     = "ami-042e8287309f5df03" # Ubuntu 20.04 in us-east-1
 }

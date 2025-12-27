@@ -52,12 +52,21 @@ resource "aws_s3_bucket_policy" "static_website_policy" {
   ]
 }
 
+resource "aws_s3_bucket_website_configuration" "this" {
+  bucket = aws_s3_bucket.cbz_bucket.id
 
-# Output the website endpoint
-output "website_endpoint" {
-  value       = aws_s3_bucket.cbz_bucket.website_endpoint
-  description = "Public S3 static website URL"
+  index_document {
+    suffix = "index.html"
+  }
+
+  error_document {
+    key = "error.html"
+  }
 }
+output "website_endpoint" {
+  value = aws_s3_bucket_website_configuration.this.website_endpoint
+}
+
 
 
 

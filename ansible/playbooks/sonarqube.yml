@@ -5,13 +5,13 @@
 
   vars:
     sonar_version: "25.5.0.107428"
-    sonar_db_user: sonar
-    sonar_db_password: sonar123
+    sonar_db_user: linux
+    sonar_db_password: redhat
     sonar_db_name: sonarqube
 
   tasks:
     # -------------------------
-    # Base packages
+    # Base system & packages
     # -------------------------
     - name: Update apt cache
       apt:
@@ -24,7 +24,6 @@
           - unzip
           - postgresql
           - postgresql-contrib
-          - python3-psycopg2
         state: present
 
     - name: Enable and start PostgreSQL
@@ -34,23 +33,28 @@
         enabled: yes
 
     # -------------------------
-    # PostgreSQL DB setup (FIXED WAY)
+    # PostgreSQL DB setup (SHELL – EXACTLY LIKE MANUAL)
     # -------------------------
-    - name: Create SonarQube DB user
-      postgresql_user:
-        name: "{{ sonar_db_user }}"
-        password: "{{ sonar_db_password }}"
-        state: present
-        login_user: postgres
-        login_unix_socket: /var/run/postgresql
+    - name: Create SonarQube DB user if not exists
+      shell: |
+        sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='{{ sonar_db_user }}'" | grep -q 1 \
+        || sudo -u postgres psql -c "CREATE USER {{ sonar_db_user }} WITH PASSWORD '{{ sonar_db_password }}';"
+      args:
+        executable: /bin/bash
 
-    - name: Create SonarQube database
-      postgresql_db:
-        name: "{{ sonar_db_name }}"
-        owner: "{{ sonar_db_user }}"
-        state: present
-        login_user: postgres
-        login_unix_socket: /var/run/postgresql
+    - name: Create SonarQube database if not exists
+      shell: |
+        sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='{{ sonar_db_name }}'" | grep -q 1 \
+        || sudo -u postgres psql -c "CREATE DATABASE {{ sonar_db_name }} OWNER {{ sonar_db_user }};"
+      args:
+        executable: /bin/bash
+
+    - name: Grant privileges on database
+      shell: |
+        sudo -u postgres psql -d {{ sonar_db_name }} -c "GRANT ALL PRIVILEGES ON DATABASE {{ sonar_db_name }} TO {{ sonar_db_user }};"
+        sudo -u postgres psql -d {{ sonar_db_name }} -c "GRANT ALL PRIVILEGES ON SCHEMA public TO {{ sonar_db_user }};"
+      args:
+        executable: /bin/bash
 
     # -------------------------
     # Kernel tuning (REQUIRED)
@@ -122,7 +126,7 @@
         recurse: yes
 
     # -------------------------
-    # Systemd service (CRITICAL)
+    # Start SonarQube (systemd)
     # -------------------------
     - name: Create SonarQube systemd service
       copy:

@@ -1,1 +1,3 @@
 .autogit
+.terraform.lock.hcl
+.terraform/

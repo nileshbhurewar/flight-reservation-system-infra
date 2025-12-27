@@ -53,6 +53,14 @@ resource "aws_s3_bucket_policy" "static_website_policy" {
 }
 
 
+# Output the website endpoint
+output "website_endpoint" {
+  value       = aws_s3_bucket.cbz_bucket.website_endpoint
+  description = "Public S3 static website URL"
+}
+
+
+
 /*
 --------------------------------------------------
 cloudfront + s3 bucket 
@@ -198,9 +206,3 @@ resource "aws_s3_bucket_policy" "this" {
 # --------------------------------------------------
 
 */
-
-# Output the website endpoint
-output "website_endpoint" {
-  value       = aws_s3_bucket.cbz_bucket.website_endpoint
-  description = "Public S3 static website URL"
-}

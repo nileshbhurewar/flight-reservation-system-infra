@@ -1,3 +1,10 @@
+
+/*
+----------------------------------------
+for s3 + cloudfront 
+----------------------------------------
+
+
 # S3 bucket name (must be globally unique)
 variable "bucket_name" {
   type    = string
@@ -27,3 +34,4 @@ variable "price_class" {
   type    = string
   default = "PriceClass_100"
 }
+*/

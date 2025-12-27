@@ -26,7 +26,7 @@
       get_url:
         url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
         dest: /etc/apt/keyrings/jenkins-keyring.asc
-        mode: '0644'
+        mode: "0644"
 
     - name: Add Jenkins repository
       apt_repository:
@@ -59,7 +59,7 @@
       get_url:
         url: https://download.docker.com/linux/ubuntu/gpg
         dest: /etc/apt/keyrings/docker.asc
-        mode: '0644'
+        mode: "0644"
 
     - name: Add Docker repository
       apt_repository:
@@ -92,6 +92,10 @@
         groups: docker
         append: yes
 
+    - name: Restart Jenkins to apply docker group
+      service:
+        name: jenkins
+        state: restarted
     # -------------------------
     # kubectl
     # -------------------------
@@ -104,7 +108,7 @@
       get_url:
         url: "https://dl.k8s.io/release/{{ lookup('file', '/tmp/k8s_version') }}/bin/linux/amd64/kubectl"
         dest: /usr/local/bin/kubectl
-        mode: '0755'
+        mode: "0755"
 
     # -------------------------
     # AWS CLI (manual config later)

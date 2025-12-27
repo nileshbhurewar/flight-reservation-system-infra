@@ -20,9 +20,9 @@
         state: present
 
     # -------------------------
-    # FORCE create keyrings directory (bulletproof)
+    # Create apt keyrings directory
     # -------------------------
-    - name: Force create /etc/apt/keyrings
+    - name: Ensure /etc/apt/keyrings exists
       command: install -d -m 0755 /etc/apt/keyrings
       args:
         creates: /etc/apt/keyrings
@@ -103,22 +103,27 @@
         groups: docker
         append: yes
 
-    - name: Restart Jenkins
+    - name: Restart Jenkins to apply docker group
       service:
         name: jenkins
         state: restarted
 
     # -------------------------
-    # kubectl
+    # kubectl (CORRECT & SAFE)
     # -------------------------
-    - name: Get kubectl version
+    - name: Get latest kubectl version
       get_url:
         url: https://dl.k8s.io/release/stable.txt
         dest: /tmp/k8s_version
 
+    - name: Read kubectl version
+      command: cat /tmp/k8s_version
+      register: kubectl_version
+      changed_when: false
+
     - name: Install kubectl
       get_url:
-        url: "https://dl.k8s.io/release/{{ lookup('file', '/tmp/k8s_version') }}/bin/linux/amd64/kubectl"
+        url: "https://dl.k8s.io/release/{{ kubectl_version.stdout }}/bin/linux/amd64/kubectl"
         dest: /usr/local/bin/kubectl
         mode: "0755"
 

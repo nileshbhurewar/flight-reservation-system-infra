@@ -5,27 +5,11 @@
 
   tasks:
     # -------------------------
-    # Base system
+    # System update
     # -------------------------
     - name: Update apt cache
       apt:
         update_cache: yes
-
-    - name: Install base dependencies
-      apt:
-        name:
-          - ca-certificates
-          - curl
-          - gnupg
-        state: present
-
-    # -------------------------
-    # FORCE create keyrings directory (bulletproof)
-    # -------------------------
-    - name: Force create /etc/apt/keyrings
-      command: install -d -m 0755 /etc/apt/keyrings
-      args:
-        creates: /etc/apt/keyrings
 
     # -------------------------
     # Java 17
@@ -36,18 +20,16 @@
         state: present
 
     # -------------------------
-    # Jenkins
+    # Jenkins installation (LEGACY but RELIABLE)
     # -------------------------
-    - name: Download Jenkins GPG key
-      get_url:
-        url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
-        dest: /etc/apt/keyrings/jenkins-keyring.asc
-        mode: "0644"
+    - name: Add Jenkins GPG key
+      apt_key:
+        url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
+        state: present
 
     - name: Add Jenkins repository
       apt_repository:
-        repo: "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/"
-        filename: jenkins
+        repo: "deb https://pkg.jenkins.io/debian-stable binary/"
         state: present
 
     - name: Install Jenkins
@@ -63,18 +45,24 @@
         enabled: yes
 
     # -------------------------
-    # Docker
+    # Docker installation
     # -------------------------
-    - name: Download Docker GPG key
-      get_url:
+    - name: Install Docker dependencies
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+
+    - name: Add Docker GPG key
+      apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
-        dest: /etc/apt/keyrings/docker.asc
-        mode: "0644"
+        state: present
 
     - name: Add Docker repository
       apt_repository:
-        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
-        filename: docker
+        repo: "deb https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
         state: present
 
     - name: Install Docker
@@ -95,7 +83,7 @@
         enabled: yes
 
     # -------------------------
-    # Jenkins Docker permission
+    # Jenkins permissions for Docker
     # -------------------------
     - name: Add jenkins user to docker group
       user:
@@ -103,7 +91,7 @@
         groups: docker
         append: yes
 
-    - name: Restart Jenkins
+    - name: Restart Jenkins to apply docker group
       service:
         name: jenkins
         state: restarted
@@ -111,7 +99,7 @@
     # -------------------------
     # kubectl
     # -------------------------
-    - name: Get kubectl version
+    - name: Download kubectl
       get_url:
         url: https://dl.k8s.io/release/stable.txt
         dest: /tmp/k8s_version

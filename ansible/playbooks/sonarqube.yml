@@ -3,20 +3,28 @@
   hosts: sonarqube
   become: yes
 
+  vars:
+    sonar_db_user: sonar
+    sonar_db_password: sonar123
+    sonar_db_name: sonarqube
+    sonar_version: "25.5.0.107428"
+
   tasks:
     # -------------------------
-    # Java & tools
+    # Base packages
     # -------------------------
-    - name: Install Java and tools
+    - name: Install Java, PostgreSQL and dependencies
       apt:
         name:
           - openjdk-17-jdk
           - unzip
           - postgresql
+          - postgresql-contrib
+          - python3-psycopg2
         state: present
         update_cache: yes
 
-    - name: Start PostgreSQL
+    - name: Enable and start PostgreSQL
       service:
         name: postgresql
         state: started
@@ -25,20 +33,22 @@
     # -------------------------
     # PostgreSQL DB setup
     # -------------------------
-    - name: Create sonar database user
+    - name: Create SonarQube DB user
       become_user: postgres
       postgresql_user:
-        name: linux
-        password: redhat
+        name: "{{ sonar_db_user }}"
+        password: "{{ sonar_db_password }}"
+        state: present
 
-    - name: Create sonar database
+    - name: Create SonarQube database
       become_user: postgres
       postgresql_db:
-        name: sonarqube
-        owner: linux
+        name: "{{ sonar_db_name }}"
+        owner: "{{ sonar_db_user }}"
+        state: present
 
     # -------------------------
-    # Kernel tuning
+    # Kernel tuning (REQUIRED)
     # -------------------------
     - name: Set vm.max_map_count
       sysctl:
@@ -55,17 +65,29 @@
         reload: yes
 
     # -------------------------
-    # SonarQube installation
+    # Sonar user & limits
     # -------------------------
-    - name: Create sonar user
+    - name: Create sonar system user
       user:
         name: sonar
         system: yes
         create_home: yes
+        shell: /bin/bash
 
+    - name: Configure limits for sonar user
+      copy:
+        dest: /etc/security/limits.d/sonar.conf
+        content: |
+          sonar   -   nofile   65536
+          sonar   -   nproc    4096
+        mode: "0644"
+
+    # -------------------------
+    # SonarQube installation
+    # -------------------------
     - name: Download SonarQube
       get_url:
-        url: https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-25.5.0.107428.zip
+        url: "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-{{ sonar_version }}.zip"
         dest: /opt/sonarqube.zip
 
     - name: Unzip SonarQube
@@ -74,21 +96,20 @@
         dest: /opt/
         remote_src: yes
 
-    - name: Move SonarQube
-      command: mv /opt/sonarqube-25.5.0.107428 /opt/sonar
+    - name: Move SonarQube directory
+      command: mv /opt/sonarqube-{{ sonar_version }} /opt/sonar
       args:
         creates: /opt/sonar
 
     - name: Configure sonar.properties
-      lineinfile:
+      blockinfile:
         path: /opt/sonar/conf/sonar.properties
-        line: "{{ item }}"
-      loop:
-        - "sonar.jdbc.username=linux"
-        - "sonar.jdbc.password=redhat"
-        - "sonar.jdbc.url=jdbc:postgresql://localhost/sonarqube"
+        block: |
+          sonar.jdbc.username={{ sonar_db_user }}
+          sonar.jdbc.password={{ sonar_db_password }}
+          sonar.jdbc.url=jdbc:postgresql://localhost/{{ sonar_db_name }}
 
-    - name: Set ownership
+    - name: Set ownership of SonarQube directory
       file:
         path: /opt/sonar
         owner: sonar
@@ -96,8 +117,35 @@
         recurse: yes
 
     # -------------------------
-    # Start SonarQube
+    # Systemd service (CRITICAL)
     # -------------------------
-    - name: Start SonarQube
-      become_user: sonar
-      command: /opt/sonar/bin/linux-x86-64/sonar.sh start
+    - name: Create SonarQube systemd service
+      copy:
+        dest: /etc/systemd/system/sonarqube.service
+        content: |
+          [Unit]
+          Description=SonarQube service
+          After=network.target postgresql.service
+
+          [Service]
+          Type=forking
+          ExecStart=/opt/sonar/bin/linux-x86-64/sonar.sh start
+          ExecStop=/opt/sonar/bin/linux-x86-64/sonar.sh stop
+          User=sonar
+          Group=sonar
+          Restart=always
+          LimitNOFILE=65536
+          LimitNPROC=4096
+
+          [Install]
+          WantedBy=multi-user.target
+        mode: "0644"
+
+    - name: Reload systemd
+      command: systemctl daemon-reexec
+
+    - name: Enable and start SonarQube
+      service:
+        name: sonarqube
+        state: started
+        enabled: yes

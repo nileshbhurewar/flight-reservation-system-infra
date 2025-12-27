@@ -22,6 +22,13 @@
     # -------------------------
     # Jenkins installation
     # -------------------------
+
+    - name: Create /etc/apt/keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
     - name: Add Jenkins GPG key
       get_url:
         url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key

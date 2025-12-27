@@ -17,6 +17,7 @@
           - ca-certificates
           - curl
           - gnupg
+          - unzip          # 🔥 REQUIRED for AWS CLI
         state: present
 
     # -------------------------
@@ -109,7 +110,7 @@
         state: restarted
 
     # -------------------------
-    # kubectl (CORRECT & SAFE)
+    # kubectl
     # -------------------------
     - name: Get latest kubectl version
       get_url:
@@ -128,7 +129,7 @@
         mode: "0755"
 
     # -------------------------
-    # AWS CLI
+    # AWS CLI v2
     # -------------------------
     - name: Download AWS CLI
       get_url:

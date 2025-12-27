@@ -61,25 +61,15 @@ resource "aws_iam_role_policy_attachment" "ec2_container_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
-# Fetch the Default VPC and Subnets
-data "aws_vpc" "default" {
-  default = true
-}
 
-data "aws_subnets" "default" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-}
 
 # Create an EKS Cluster
-resource "aws_eks_cluster" "cbz_cluster" {
+resource "aws_eks_cluster" "this" {
   name     = "${var.project}-cluster"
   role_arn = aws_iam_role.eks_cluster_role.arn
 
   vpc_config {
-    subnet_ids = data.aws_subnets.default.ids
+    subnet_ids = var.private_subnet_ids   # custom private subnets
   }
 
   depends_on = [
@@ -89,11 +79,11 @@ resource "aws_eks_cluster" "cbz_cluster" {
 }
 
 # Create a Node Group
-resource "aws_eks_node_group" "cbz_nodegroup" {
-  cluster_name    = aws_eks_cluster.cbz_cluster.name
+resource "aws_eks_node_group" "this" {
+  cluster_name    = aws_eks_cluster.this.name
   node_group_name = "${var.project}-node-group"
   node_role_arn   = aws_iam_role.eks_node_role.arn
-  subnet_ids      = data.aws_subnets.default.ids
+  subnet_ids      = var.private_subnet_ids   # 🔥 private subnets
 
   scaling_config {
     desired_size = var.desired_nodes

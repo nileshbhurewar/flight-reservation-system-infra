@@ -4,15 +4,19 @@
   become: yes
 
   vars:
+    sonar_version: "25.5.0.107428"
     sonar_db_user: sonar
     sonar_db_password: sonar123
     sonar_db_name: sonarqube
-    sonar_version: "25.5.0.107428"
 
   tasks:
     # -------------------------
     # Base packages
     # -------------------------
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
     - name: Install Java, PostgreSQL and dependencies
       apt:
         name:
@@ -22,7 +26,6 @@
           - postgresql-contrib
           - python3-psycopg2
         state: present
-        update_cache: yes
 
     - name: Enable and start PostgreSQL
       service:
@@ -31,21 +34,23 @@
         enabled: yes
 
     # -------------------------
-    # PostgreSQL DB setup
+    # PostgreSQL DB setup (FIXED WAY)
     # -------------------------
     - name: Create SonarQube DB user
-      become_user: postgres
       postgresql_user:
         name: "{{ sonar_db_user }}"
         password: "{{ sonar_db_password }}"
         state: present
+        login_user: postgres
+        login_unix_socket: /var/run/postgresql
 
     - name: Create SonarQube database
-      become_user: postgres
       postgresql_db:
         name: "{{ sonar_db_name }}"
         owner: "{{ sonar_db_user }}"
         state: present
+        login_user: postgres
+        login_unix_socket: /var/run/postgresql
 
     # -------------------------
     # Kernel tuning (REQUIRED)

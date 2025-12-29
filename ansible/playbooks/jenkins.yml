@@ -156,3 +156,55 @@
           - maven
           - git
         state: present
+    
+
+
+    # -------------------------
+    # Argo CD (GitOps CD)
+    # -------------------------
+
+    - name: Create argocd namespace (idempotent)
+      command: kubectl create namespace argocd
+      register: argocd_ns
+      failed_when: false
+      changed_when: "'created' in argocd_ns.stdout"
+
+    - name: Install Argo CD core components
+      command: >
+        kubectl apply -n argocd
+        -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+      register: argocd_install
+
+    - name: Wait for Argo CD server deployment
+      command: kubectl rollout status deployment/argocd-server -n argocd
+      retries: 10
+      delay: 15
+      register: rollout_status
+      until: rollout_status.rc == 0
+
+    # -------------------------
+    # Argo CD CLI
+    # -------------------------
+
+    - name: Download Argo CD CLI
+      get_url:
+        url: https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+        dest: /usr/local/bin/argocd
+        mode: "0755"
+
+    - name: Verify Argo CD CLI
+      command: argocd version --client
+      register: argocd_cli_version
+      changed_when: false
+
+    # -------------------------
+    # Argo CD UI Port Forward (background)
+    # -------------------------
+
+    - name: Start Argo CD UI port-forward on 8081
+      shell: |
+        pkill -f "kubectl port-forward svc/argocd-server" || true
+        nohup kubectl port-forward svc/argocd-server -n argocd 8081:443 --address=0.0.0.0 > /tmp/argocd-portforward.log 2>&1 &
+      async: 10
+      poll: 0
+

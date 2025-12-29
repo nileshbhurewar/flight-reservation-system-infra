@@ -11,6 +11,25 @@
 
   tasks:
     # -------------------------
+    # WAIT FOR APT / DPKG LOCK (FIX ONLY)
+    # -------------------------
+    - name: Wait for apt lock to be released
+      shell: |
+        while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+          echo "Waiting for apt lock..."
+          sleep 5
+        done
+      changed_when: false
+
+    - name: Wait for dpkg lock
+      shell: |
+        while fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+          echo "Waiting for dpkg lock..."
+          sleep 5
+        done
+      changed_when: false
+
+    # -------------------------
     # Base system & packages
     # -------------------------
     - name: Update apt cache
